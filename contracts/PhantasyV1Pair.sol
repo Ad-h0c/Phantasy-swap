@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.9;
 
-import "./IERC20.sol";
+import "./interfaces/IERC20.sol";
 
 error NotTheFactoryContract(address);
 error InvalidToken(address);
@@ -253,8 +253,9 @@ contract phantasyCore {
         IERC20(token0).transferFrom(msg.sender, address(this), _amount0);
         IERC20(token1).transferFrom(msg.sender, address(this), _amount1);
 
-        (reserve0, reserve1) = getReserves();
+        (reserve0, reserve1) = getReserves(); // Getting reserves from the function to save gas.
 
+        // Checking the liquidity ratio.
         if (reserve0 > 0 || reserve1 > 0) {
             require(
                 reserve0 * _amount1 == reserve1 * _amount0,
@@ -270,9 +271,13 @@ contract phantasyCore {
                 (_amount1 * totalSupply) / reserve1
             );
         }
-        require(shares > 0, "shares = 0");
+
+        // Liquidity reserves
+        require(shares > 0, "PHANTASYSWAP: SHARES = 0");
+
         _mint(msg.sender, shares);
 
+        // Updating the reserves.
         _update(
             IERC20(token0).balanceOf(address(this)),
             IERC20(token1).balanceOf(address(this))
