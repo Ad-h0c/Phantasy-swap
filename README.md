@@ -67,6 +67,18 @@ cd Phantasy-Swap
 npm install
 ```
 
+### Smart contract deploying order.
+
+You can use the pre-written deploy.js files to deploy smart contracts to the blockchain. However, you may need to follow the order.
+
+- ERC20(Optional)
+- Pair(Optional)
+- Factory(Mandatory)
+- Route(Mandatory)
+
+In the abvoe contracts, you should deploy factory before the route contract because the route contract constructor accepts factory contract address as a parameter.
+
+And there are a lot of interfaces used to call functions, so it is better to deploy all before calling the individual functions in the contracts.
 To fork the application to your git hub account click on the fork icon on upper right corner of the repository.
 
 Enjoy!
