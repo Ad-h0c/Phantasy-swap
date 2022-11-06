@@ -5,10 +5,10 @@ async function main() {
 
   console.log("Account balance:", (await deployer.getBalance()).toString());
 
-  let Factory = "";
+  let facAddress = ""; // First deploy factory contract then enter the factory address here.
 
   const Router = await ethers.getContractFactory("PhantasySwapRouterV01");
-  const router = await Router.deploy(Factory);
+  const router = await Router.deploy(facAddress);
 
   await router.deployed();
 
