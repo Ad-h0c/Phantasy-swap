@@ -125,28 +125,11 @@ contract phantasyCore {
 
     /**
      *   @notice "swap" function will swap one coin to another.
-     *   @param _tokenIn, the exchange token.
-     *   @param _amountIn, the amount of tokens to swap.
-     *   @dev It will be an external function as it is called by the factory contract.
-     *   @custom:math Math to swap function will be explained elsewhere. Read the comment below.
+     *   @param amount0Out, Amount of token 1 that goes out.
+     *   @param amount1Out, Amount of token 2 that goes out
+     *   @param to, Address of the user that token is gonna transfer into.
+     *   @dev It will be an external function as it is called by the router contract.
      */
-
-    /*
-        xy = k
-        dx = deposited token,
-        dy = withdrawal token.
-        (x+dx)(y-dy) = k.
-        Since we are depositing dx and withdrawing the dy, hence that equation.
-        y - dy = k / (x + dx)
-        -dy = k / (x + dx) - y
-        dy = y - k / (x + dx)
-        Since xy = k, we can replace k.
-        dy = y - xy / (x + dx)
-        dy = (yx - xy + ydx)/(x + dx)
-        dy = ydx / (x + dx)
-     */
-
-    /// @dev Final result is the swap formula. dx and dy can interexchangble between token0 and token1.
 
     function swap(
         uint amount0Out,

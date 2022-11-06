@@ -5,12 +5,14 @@ async function main() {
 
   console.log("Account balance:", (await deployer.getBalance()).toString());
 
-  const Router = await ethers.getContractFactory("phantasyCore");
-  const router = await Router.deploy();
+  let Factory = "";
+
+  const Router = await ethers.getContractFactory("PhantasySwapRouterV01");
+  const router = await Router.deploy(Factory);
 
   await router.deployed();
 
-  console.log("Pair contract deployed to:", router.address);
+  console.log("Router deployed to:", router.address);
 }
 
 main()
