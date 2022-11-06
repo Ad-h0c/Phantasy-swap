@@ -7,6 +7,7 @@ import "./interfaces/IERC20.sol";
 error NotTheFactoryContract(address);
 error InvalidToken(address);
 error InvalidAmount(uint);
+error INSUFFICIENT_LIQUIDITY();
 
 /// @title phantasy core contract.
 
@@ -14,6 +15,9 @@ contract phantasyCore {
     address public token0;
     address public token1;
     address public factory;
+
+    bytes4 private constant SELECTOR =
+        bytes4(keccak256(bytes("transfer(address,uint256)")));
 
     uint public totalSupply; /// @notice Total number of LP shares.
 
@@ -35,23 +39,18 @@ contract phantasyCore {
         unlocked = 1;
     }
 
-    // Helper functions
-
-    function _sqrt(uint y) private pure returns (uint z) {
-        if (y > 3) {
-            z = y;
-            uint x = y / 2 + 1;
-            while (x < z) {
-                z = x;
-                x = (y / x + x) / 2;
-            }
-        } else if (y != 0) {
-            z = 1;
-        }
-    }
-
-    function _min(uint x, uint y) private pure returns (uint) {
-        return x <= y ? x : y;
+    function _safeTransfer(
+        address token,
+        address to,
+        uint value
+    ) private {
+        (bool success, bytes memory data) = token.call(
+            abi.encodeWithSelector(SELECTOR, to, value)
+        );
+        require(
+            success && (data.length == 0 || abi.decode(data, (bool))),
+            "phantasySwap: TRANSFER_FAILED"
+        );
     }
 
     /**
@@ -149,43 +148,57 @@ contract phantasyCore {
 
     /// @dev Final result is the swap formula. dx and dy can interexchangble between token0 and token1.
 
-    function swap(address _tokenIn, uint _amountIn)
-        external
-        lock
-        returns (uint amountOut)
-    {
-        if (_tokenIn != token0 || _tokenIn != token1) {
-            revert InvalidToken(_tokenIn);
-        } else if (_amountIn <= 0) {
-            revert InvalidAmount(_amountIn);
-        } else {
-            bool isToken0 = _tokenIn == token0;
-            (
-                address tokenIn,
-                address tokenOut,
-                uint reserveIn,
-                uint reserveOut
-            ) = isToken0
-                    ? (token0, token1, reserve0, reserve1)
-                    : (token1, token0, reserve1, reserve0);
-            IERC20(tokenIn).transferFrom(msg.sender, address(this), _amountIn);
-            uint amountInWithFee = (_amountIn * 997) / 1000;
-
-            // dy =  amountOut
-            // y = reserveOut
-            // dx = amountInWithFee
-            // x = reserveIn
-
-            // dy = (y * dx) / (x + dx)
-            amountOut =
-                (reserveOut * amountInWithFee) /
-                (reserveIn + amountInWithFee);
-
-            _update(
-                IERC20(token0).balanceOf(address(this)),
-                IERC20(token1).balanceOf(address(this))
+    function swap(
+        uint amount0Out,
+        uint amount1Out,
+        address to
+    ) external lock {
+        require(
+            amount0Out == 0 || amount1Out == 0,
+            "PhantasySwapV1: INSUFFICIENT_OUTPUT_AMOUNT"
+        );
+        (uint _reserve0, uint _reserve1) = getReserves();
+        if (amount0Out < _reserve0 && amount1Out < _reserve1) {
+            uint balance0;
+            uint balance1;
+            {
+                address _token0 = token0;
+                address _token1 = token1;
+                require(
+                    to != _token0 && to != _token1,
+                    "PhantasySwapV1: INVALID_TO"
+                );
+                if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
+                if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
+                balance0 = IERC20(_token0).balanceOf(address(this));
+                balance1 = IERC20(_token1).balanceOf(address(this));
+            }
+            uint amount0In = balance0 > _reserve0 - amount0Out
+                ? balance0 - (_reserve0 - amount0Out)
+                : 0;
+            uint amount1In = balance1 > _reserve1 - amount1Out
+                ? balance1 - (_reserve1 - amount1Out)
+                : 0;
+            require(
+                amount0In > 0 || amount1In > 0,
+                "PhantasySwapV1: INSUFFICIENT_INPUT_AMOUNT"
             );
-            IERC20(tokenOut).transfer(msg.sender, amountOut);
+
+            {
+                {
+                    // scope for reserve{0,1}Adjusted, avoids stack too deep errors
+                    uint balance0Adjusted = balance0 * 1000 - (amount0In * 3);
+                    uint balance1Adjusted = (balance1 * 1000) - (amount1In * 3);
+                    require(
+                        balance0Adjusted * balance1Adjusted >=
+                            uint(_reserve0) * (_reserve1) * (1000**2),
+                        "PhantasySwapV1: K"
+                    );
+                }
+                _update(balance0, balance1);
+            }
+        } else {
+            revert INSUFFICIENT_LIQUIDITY();
         }
     }
 
