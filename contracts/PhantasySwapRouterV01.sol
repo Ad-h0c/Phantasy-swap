@@ -151,5 +151,48 @@ contract PhantasySwapRouterV01 {
 
     /** **** SWAP **** */
 
-    function swap() external {}
+    function _swap(
+        uint256[] memory amounts,
+        address[] memory path,
+        address _to
+    ) internal virtual {
+        for (uint256 i; i < path.length - 1; i++) {
+            (address input, address output) = (path[i], path[i + 1]);
+            (address token0, ) = PhantasyV1Library.sortTokens(input, output);
+            uint256 amountOut = amounts[i + 1];
+            (uint256 amount0Out, uint256 amount1Out) = input == token0
+                ? (uint256(0), amountOut)
+                : (amountOut, uint256(0));
+            address to = i < path.length - 2
+                ? IPhantasySwapV1Factory(Factory).getPair(output, path[i + 2])
+                : _to;
+
+            address pair = IPhantasySwapV1Factory(Factory).getPair(
+                input,
+                output
+            );
+            IPhantasySwapV1Pair(pair).swap(amount0Out, amount1Out, to);
+        }
+    }
+
+    function swap(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external virtual ensure(deadline) returns (uint256[] memory amounts) {
+        amounts = PhantasyV1Library.getAmountsOut(Factory, amountIn, path);
+        require(
+            amounts[amounts.length - 1] >= amountOutMin,
+            "PhantasySwapV1: INSUFFICIENT_OUTPUT_AMOUNT"
+        );
+        TransferHelper.safeTransferFrom(
+            path[0],
+            msg.sender,
+            IPhantasySwapV1Factory(Factory).getPair(path[0], path[1]),
+            amounts[0]
+        );
+        _swap(amounts, path, to);
+    }
 }
