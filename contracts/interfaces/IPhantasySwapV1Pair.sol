@@ -21,7 +21,11 @@ interface IPhantasySwapV1Pair {
 
     function _update(uint, uint) external;
 
-    function swap(address, uint) external returns (uint);
+    function swap(
+        uint,
+        uint,
+        address
+    ) external;
 
     function burn(
         uint balanceA,
