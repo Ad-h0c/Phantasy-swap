@@ -15,9 +15,9 @@ contract phantasyCore {
     address public token1;
     address public factory;
 
-    uint public totalSupply; /// @notice Total no of LP shares.
+    uint public totalSupply; /// @notice Total number of LP shares.
 
-    mapping(address => uint) balanceOf;
+    mapping(address => uint) balanceOf; /// @notice User address to LP shares mapping.
 
     uint private reserve0;
     uint private reserve1;
@@ -180,165 +180,32 @@ contract phantasyCore {
             amountOut =
                 (reserveOut * amountInWithFee) /
                 (reserveIn + amountInWithFee);
-            IERC20(tokenOut).transfer(msg.sender, amountOut);
+
             _update(
                 IERC20(token0).balanceOf(address(this)),
                 IERC20(token1).balanceOf(address(this))
             );
+            IERC20(tokenOut).transfer(msg.sender, amountOut);
         }
     }
 
     /**
-     * @notice "ADDLIQUIDITY" lets you add liquidity to the pool.
-     * @param _amount0, amount of token0 tokens into the pool.
-     * @param _amount1, amount of token1 tokens into the pool.
+     * @notice "BURN" lets you remove liquidity from the pool.
+     * @param liquidity, amount of shares the user account holds.
      * @custom:visibility external.
-     * @dev The math to this function has been explained below.
      */
 
-    /// @notice Two math eqs in the addLiquidity - ratio of dy and dx and shares to mint.
-
-    /*
-        How many dy and dx to add.      
-        xy = k
-        (x+dx)(y+dy) = k`
-        since the prices won't be changing after adding the liqudity, we get,   
-        x / y = (x + dx) / (y + dy)
-        solving this equation, we will get,
-        x / y = dx / dy
-        Therefore, dy = ( y * dx ) / x
-        here, x = token0, y = token1, dx = amount0In, dy = amount1In
-     */
-
-    /*
-        How many shares to mint?
-        
-        CPAMM: XY = K.
-        Totalnumber of shares: T.
-        New shares to mint: S.
-        L0 = Existing liquidity.
-        L1 = New liquidity.
-
-        As CPAMM is a homogeneous and quardatic equation, in case, when a user doubles the liquidity,
-        the product will become 4 times.
-
-        So to solve this, we will using sqrt(k) to keep the liqiudity near to the real value.
-
-        f(x,y) = L0 = sqrt(XY).
-        f(x+dx, y+dy) = L1 = sqrt(x+dx, y+dy)
-
-        -----
-
-        Since the total shares increase proportionally to the liquidty that add, the ratios would be equal.
-
-        L1 / L0 = ( T + S ) / T
-
-        sqrt(x + dx * y + dy) / sqrt(x * y) = (T + S) / T
-
-        ...
-
-        S / T = sqrt(1 + 2(dx / x) + (dx/x) ^ 2 ) - 1 or sqrt (1 + 2(dy / y) + (dy/y)^2)) - 1
-
-        It is in (a+b) ^ 2 formate. So we can cancel the root with the square and the final result will be.
-
-        S / T = (dx / x) or ( dy / y )
-
-        S = (dx / x) * T or (dy / y) * T
-     */
-
-    function addLiquidity(uint _amount0, uint _amount1)
-        external
-        returns (uint shares)
-    {
-        IERC20(token0).transferFrom(msg.sender, address(this), _amount0);
-        IERC20(token1).transferFrom(msg.sender, address(this), _amount1);
-
-        (reserve0, reserve1) = getReserves(); // Getting reserves from the function to save gas.
-
-        // Checking the liquidity ratio.
-        if (reserve0 > 0 || reserve1 > 0) {
-            require(
-                reserve0 * _amount1 == reserve1 * _amount0,
-                "x / y != dx / dy"
-            );
-        }
-
-        if (totalSupply == 0) {
-            shares = _sqrt(_amount0 * _amount1);
-        } else {
-            shares = _min(
-                (_amount0 * totalSupply) / reserve0,
-                (_amount1 * totalSupply) / reserve1
-            );
-        }
-
-        // Liquidity reserves
-        require(shares > 0, "PHANTASYSWAP: SHARES = 0");
-
-        _mint(msg.sender, shares);
-
-        // Updating the reserves.
-        _update(
-            IERC20(token0).balanceOf(address(this)),
-            IERC20(token1).balanceOf(address(this))
-        );
-    }
-
-    /**
-     * @notice "REMOVE LIQUIDITY" lets you add liquidity to the pool.
-     * @param _shares, amount of shares the user account holds.
-     * @custom:visibility external.
-     * @return _amount0Out , the amount of token0 comes out.
-     * @return _amount1Out , the amount of token1 comes out.
-     * @dev The math to this function has been explained below.
-     */
-
-    /*
-        Let us say, the removing liquidity(a) = sqrt(dxdy)
-        The Liquidity(L) = sqrt(xy)
-        T =  Total shares.
-        s = No.of shares to burn. 
-        The ratio of liquidity is proportional to ratio of shares.
-
-        a / L = S / T
-
-        sqrt(dxdy) / sqrt(xy) = S / T
-
-        sqrt(dxdy/xy) = S / T
-
-        since dx/x = dy/y
-
-        case 1,
-
-        replace dy/y = dx/x
-
-        we will get, dx = x(S / T)
-
-        In case 2,
-
-        replace dx/x = dy/y
-
-        in this case we will get, dy = y(S / T)
-     */
-
-    function removeLiquidity(uint _shares)
-        external
-        returns (uint _amount0Out, uint _amount1Out)
-    {
-        uint balance0 = IERC20(token0).balanceOf(address(this));
-        uint balance1 = IERC20(token1).balanceOf(address(this));
-
-        _amount0Out = (_shares * balance0) / totalSupply;
-        _amount1Out = (_shares * balance1) / totalSupply;
-        require(
-            _amount0Out > 0 && _amount1Out > 0,
-            "_amount0Out or _amount1Out = 0"
-        );
-
-        _burn(msg.sender, _shares);
-        _update(balance0 - _amount0Out, balance1 - _amount1Out);
-
-        IERC20(token0).transfer(msg.sender, _amount0Out);
-        IERC20(token1).transfer(msg.sender, _amount1Out);
+    function burn(
+        uint balanceA,
+        uint balanceB,
+        uint amountA,
+        uint amountB,
+        address to,
+        uint liquidity
+    ) external lock {
+        _burn(to, liquidity);
+        _update(balanceA - amountA, balanceB - amountB);
+        IERC20(token0).transfer(to, amountA);
+        IERC20(token1).transfer(to, amountB);
     }
 }

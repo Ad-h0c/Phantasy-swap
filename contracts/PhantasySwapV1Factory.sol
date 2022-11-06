@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.9;
 
-import "./PhantasyV1Pair.sol";
+import "./PhantasySwapV1Pair.sol";
 
 error IdenticalTokens(address, address);
 
